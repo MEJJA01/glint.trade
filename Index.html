@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GLINT.TRADE — Kenya Market Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080B0F;
+  --bg2: #0D1117;
+  --bg3: #111820;
+  --panel: #0F1923;
+  --border: #1A2535;
+  --border2: #243040;
+  --amber: #F5A623;
+  --amber-dim: #F5A62330;
+  --green: #00E676;
+  --green-dim: #00E67615;
+  --red: #FF3D57;
+  --red-dim: #FF3D5715;
+  --blue: #2979FF;
+  --blue-dim: #2979FF15;
+  --cyan: #00BCD4;
+  --text: #D0D8E4;
+  --text2: #8899AA;
+  --text3: #445566;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--sans); }
+
+/* SCANLINE OVERLAY */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, #00000008 2px, #00000008 4px);
+  pointer-events: none; z-index: 9999;
+}
+
+/* TICKER TAPE */
+.ticker-wrap {
+  height: 32px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  display: flex; align-items: center;
+  flex-shrink: 0;
+}
+.ticker-track {
+  display: flex; gap: 0;
+  animation: ticker 40s linear infinite;
+  white-space: nowrap;
+}
+.ticker-item {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 0 24px;
+  display: flex; gap: 8px; align-items: center;
+  border-right: 1px solid var(--border);
+}
+.ticker-sym { color: var(--amber); font-weight: 600; }
+.ticker-price { color: var(--text); }
+.ticker-chg.up { color: var(--green); }
+.ticker-chg.dn { color: var(--red); }
+@keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+/* HEADER */
+.header {
+  height: 48px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+.logo {
+  font-family: var(--mono);
+  font-size: 16px; font-weight: 600;
+  letter-spacing: 3px;
+  color: var(--amber);
+}
+.logo span { color: var(--text3); font-size: 10px; font-weight: 400; margin-left: 8px; letter-spacing: 1px; }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.8)} }
+.header-time { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+.header-nav { display: flex; gap: 2px; }
+.nav-btn {
+  padding: 6px 12px;
+  background: transparent; border: none;
+  font-family: var(--mono); font-size: 11px; font-weight: 500;
+  color: var(--text2); cursor: pointer; letter-spacing: 1px;
+  border-radius: 4px; transition: all 0.15s;
+}
+.nav-btn:hover { color: var(--amber); background: var(--amber-dim); }
+.nav-btn.active { color: var(--amber); background: var(--amber-dim); }
+
+/* LAYOUT */
+.app-body {
+  display: flex;
+  height: calc(100vh - 80px);
+  overflow: hidden;
+}
+
+/* LEFT PANEL */
+.left-panel {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+/* MAIN */
+.main-panel {
+  flex: 1;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* RIGHT PANEL - AI */
+.ai-panel {
+  width: 360px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+}
+
+/* PANEL HEADERS */
+.panel-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.panel-title {
+  font-family: var(--mono);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 2px; color: var(--amber);
+  text-transform: uppercase;
+}
+.panel-sub { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+
+/* MARKET LIST */
+.market-scroll { flex: 1; overflow-y: auto; }
+.market-scroll::-webkit-scrollbar { width: 4px; }
+.market-scroll::-webkit-scrollbar-track { background: transparent; }
+.market-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.market-section-label {
+  padding: 8px 14px 4px;
+  font-family: var(--mono); font-size: 9px;
+  color: var(--text3); letter-spacing: 2px;
+  text-transform: uppercase;
+  border-top: 1px solid var(--border);
+}
+.market-section-label:first-child { border-top: none; }
+
+.stock-row {
+  padding: 8px 14px;
+  display: flex; align-items: center;
+  border-bottom: 1px solid #0D1520;
+  cursor: pointer; transition: background 0.1s;
+}
+.stock-row:hover { background: #13202F; }
+.stock-row.active { background: var(--amber-dim); border-left: 2px solid var(--amber); }
+.stock-sym { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--amber); width: 80px; }
+.stock-name { font-size: 10px; color: var(--text2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stock-price { font-family: var(--mono); font-size: 12px; font-weight: 500; text-align: right; min-width: 60px; }
+.stock-chg { font-family: var(--mono); font-size: 10px; text-align: right; min-width: 50px; }
+.up { color: var(--green); }
+.dn { color: var(--red); }
+.flat { color: var(--text2); }
+
+/* MAIN CONTENT */
+.main-top {
+  display: flex; gap: 1px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.macro-card {
+  flex: 1; padding: 12px 16px;
+  background: var(--bg3);
+  border-right: 1px solid var(--border);
+}
+.macro-card:last-child { border-right: none; }
+.macro-label { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+.macro-val { font-family: var(--mono); font-size: 18px; font-weight: 600; }
+.macro-chg { font-family: var(--mono); font-size: 10px; margin-top: 2px; }
+
+/* CHART AREA */
+.chart-area {
+  flex: 1;
+  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+.chart-label {
+  position: absolute; top: 12px; left: 16px;
+  font-family: var(--mono); font-size: 11px; color: var(--text2);
+}
+.chart-label strong { color: var(--text); font-size: 14px; }
+canvas { display: block; }
+
+/* NEWS FEED */
+.news-area {
+  height: 200px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  overflow-y: auto;
+}
+.news-area::-webkit-scrollbar { width: 4px; }
+.news-area::-webkit-scrollbar-thumb { background: var(--border2); }
+.news-item {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.news-item:hover { background: var(--bg3); }
+.news-tag {
+  font-family: var(--mono); font-size: 9px; font-weight: 600;
+  padding: 2px 6px; border-radius: 2px;
+  flex-shrink: 0; margin-top: 2px;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.tag-nse { background: var(--amber-dim); color: var(--amber); }
+.tag-cbk { background: var(--blue-dim); color: var(--blue); }
+.tag-fx { background: var(--green-dim); color: var(--green); }
+.tag-macro { background: #9C27B015; color: #CE93D8; }
+.tag-alert { background: var(--red-dim); color: var(--red); }
+.news-content { flex: 1; min-width: 0; }
+.news-title { font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--text); }
+.news-meta { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 3px; }
+
+/* AI PANEL */
+.ai-messages {
+  flex: 1; overflow-y: auto;
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.ai-messages::-webkit-scrollbar { width: 4px; }
+.ai-messages::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.msg {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.msg-role {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.msg.user .msg-role { color: var(--cyan); }
+.msg.assistant .msg-role { color: var(--amber); }
+.msg-bubble {
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 12px; line-height: 1.6;
+  border: 1px solid;
+}
+.msg.user .msg-bubble {
+  background: #0A1520;
+  border-color: var(--border2);
+  color: var(--text2);
+}
+.msg.assistant .msg-bubble {
+  background: #0F1A10;
+  border-color: #1A3020;
+  color: var(--text);
+}
+.msg.assistant.thinking .msg-bubble {
+  color: var(--text3);
+  animation: blink 1s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.ai-input-area {
+  border-top: 1px solid var(--border);
+  padding: 12px;
+  flex-shrink: 0;
+}
+.ai-input-row { display: flex; gap: 8px; }
+.ai-input {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: var(--mono); font-size: 12px;
+  padding: 10px 12px;
+  border-radius: 4px; outline: none;
+  transition: border-color 0.2s;
+  resize: none;
+}
+.ai-input:focus { border-color: var(--amber); }
+.ai-input::placeholder { color: var(--text3); }
+.ai-send {
+  background: var(--amber);
+  border: none; color: var(--bg);
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  padding: 10px 14px; border-radius: 4px; cursor: pointer;
+  transition: opacity 0.15s; letter-spacing: 1px;
+  align-self: flex-end;
+}
+.ai-send:hover { opacity: 0.85; }
+.ai-send:disabled { opacity: 0.4; cursor: default; }
+
+.ai-suggestions {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 10px;
+}
+.ai-sug {
+  font-family: var(--mono); font-size: 10px;
+  padding: 4px 10px;
+  background: var(--bg2); border: 1px solid var(--border2);
+  color: var(--text2); border-radius: 2px; cursor: pointer;
+  transition: all 0.15s;
+}
+.ai-sug:hover { border-color: var(--amber); color: var(--amber); }
+
+/* MOBILE */
+@media (max-width: 900px) {
+  .left-panel { display: none; }
+  .ai-panel { width: 100%; position: fixed; bottom: 0; left: 0; right: 0; height: 50vh; border-top: 1px solid var(--border); z-index: 100; }
+  .app-body { flex-direction: column; }
+  .main-panel { height: 50vh; }
+  .news-area { height: 140px; }
+}
+
+.status-bar {
+  display: flex; gap: 16px; align-items: center;
+  padding: 4px 16px;
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+  flex-shrink: 0;
+}
+.status-item { display: flex; gap: 4px; align-items: center; }
+.status-dot { width: 5px; height: 5px; border-radius: 50%; }
+
+.chart-controls {
+  position: absolute; top: 12px; right: 12px;
+  display: flex; gap: 4px;
+}
+.chart-ctrl {
+  font-family: var(--mono); font-size: 10px;
+  padding: 4px 8px; background: var(--bg3);
+  border: 1px solid var(--border); color: var(--text2);
+  cursor: pointer; border-radius: 2px; transition: all 0.15s;
+}
+.chart-ctrl.active, .chart-ctrl:hover { border-color: var(--amber); color: var(--amber); }
+</style>
+</head>
+<body>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker-track" id="ticker-track"></div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div style="display:flex;align-items:center;gap:16px">
+    <div class="logo">GLINT<span>KENYA MARKET INTELLIGENCE</span></div>
+    <div class="header-nav">
+      <button class="nav-btn active">EQUITIES</button>
+      <button class="nav-btn">FOREX</button>
+      <button class="nav-btn">TBILLS</button>
+      <button class="nav-btn">MACRO</button>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-dot"></div>
+    <div class="header-time" id="clock">--:--:--</div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+  <div class="status-item"><div class="status-dot" style="background:var(--green)"></div> NSE OPEN</div>
+  <div class="status-item"><div class="status-dot" style="background:var(--amber)"></div> CBK RATE: 13.00%</div>
+  <div class="status-item"><div class="status-dot" style="background:var(--cyan)"></div> USD/KES: 129.45</div>
+  <div class="status-item"><div class="status-dot" style="background:var(--blue)"></div> INFLATION: 6.9%</div>
+  <div class="status-item" style="margin-left:auto">NSE 20: <span class="up" style="margin-left:4px">▲ 1,847.32 +0.34%</span></div>
+</div>
+
+<!-- BODY -->
+<div class="app-body">
+
+  <!-- LEFT: WATCHLIST -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <div class="panel-title">WATCHLIST</div>
+      <div class="panel-sub" id="nse-time">NSE</div>
+    </div>
+    <div class="market-scroll" id="market-list"></div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main-panel">
+    <!-- Macro Cards -->
+    <div class="main-top" id="macro-cards"></div>
+
+    <!-- Chart -->
+    <div class="chart-area" id="chart-area">
+      <div class="chart-label">
+        <strong id="chart-title">SAFARICOM PLC</strong>
+        <span id="chart-sym" style="color:var(--amber);margin-left:8px;font-size:11px">SCOM</span>
+        <span id="chart-price" style="margin-left:12px;font-size:16px;font-weight:600"></span>
+        <span id="chart-chg" style="margin-left:8px;font-size:11px"></span>
+      </div>
+      <div class="chart-controls">
+        <button class="chart-ctrl active">1D</button>
+        <button class="chart-ctrl">1W</button>
+        <button class="chart-ctrl">1M</button>
+        <button class="chart-ctrl">3M</button>
+      </div>
+      <canvas id="chart-canvas"></canvas>
+    </div>
+
+    <!-- News -->
+    <div class="news-area" id="news-feed"></div>
+  </div>
+
+  <!-- RIGHT: AI ANALYST -->
+  <div class="ai-panel">
+    <div class="panel-header">
+      <div class="panel-title">⚡ AI ANALYST</div>
+      <div class="panel-sub">GLINT INTELLIGENCE · LIVE SEARCH</div>
+    </div>
+    <div class="ai-messages" id="ai-messages">
+      <div class="msg assistant">
+        <div class="msg-role">GLINT AI</div>
+        <div class="msg-bubble">Good day. I am your Kenya market intelligence analyst. I have access to live web search and can analyze NSE equities, forex, CBK policy, and macroeconomic data in real time.<br><br>Ask me anything about the Kenyan market.</div>
+      </div>
+    </div>
+    <div class="ai-input-area">
+      <div class="ai-suggestions">
+        <div class="ai-sug" onclick="askSuggestion(this)">Safaricom outlook</div>
+        <div class="ai-sug" onclick="askSuggestion(this)">USD/KES forecast</div>
+        <div class="ai-sug" onclick="askSuggestion(this)">CBK rate impact</div>
+        <div class="ai-sug" onclick="askSuggestion(this)">Best NSE stocks now</div>
+        <div class="ai-sug" onclick="askSuggestion(this)">Kenya inflation trend</div>
+        <div class="ai-sug" onclick="askSuggestion(this)">T-Bill rates today</div>
+      </div>
+      <div class="ai-input-row">
+        <textarea class="ai-input" id="ai-input" rows="2" placeholder="Ask about any Kenyan market..."></textarea>
+        <button class="ai-send" id="ai-send-btn" onclick="sendMessage()">SEND</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── MARKET DATA ──────────────────────────────────────────────────────
+// Live data fetched from Netlify function (/.netlify/functions/nse)
+// Falls back to seed data if function is unavailable
+
+const NSE_FALLBACK = [
+  {sym:'SCOM',name:'Safaricom Plc',price:28.90,chg:0.55,pct:1.94,sector:'TELECOMS'},
+  {sym:'EQTY',name:'Equity Group Holdings',price:67.00,chg:0.25,pct:0.37,sector:'BANKING'},
+  {sym:'KCB',name:'KCB Group',price:65.50,chg:-0.25,pct:-0.38,sector:'BANKING'},
+  {sym:'COOP',name:'Co-operative Bank',price:23.95,chg:0.00,pct:0.00,sector:'BANKING'},
+  {sym:'NCBA',name:'NCBA Group Plc',price:85.00,chg:1.00,pct:1.19,sector:'BANKING'},
+  {sym:'ABSA',name:'Absa Bank Kenya',price:24.90,chg:0.20,pct:0.81,sector:'BANKING'},
+  {sym:'KPLC',name:'Kenya Power',price:13.50,chg:-0.10,pct:-0.74,sector:'ENERGY'},
+  {sym:'KEGN',name:'KenGen Plc',price:9.18,chg:0.00,pct:0.00,sector:'ENERGY'},
+  {sym:'EABL',name:'East African Breweries',price:269.00,chg:6.00,pct:2.28,sector:'MANUFACTURING'},
+  {sym:'BAMB',name:'Bamburi Cement',price:47.20,chg:0.00,pct:0.00,sector:'MANUFACTURING'},
+  {sym:'JUB',name:'Jubilee Holdings',price:334.00,chg:-1.00,pct:-0.30,sector:'INSURANCE'},
+  {sym:'BRIT',name:'Britam Holdings',price:9.00,chg:-0.10,pct:-1.10,sector:'INSURANCE'},
+  {sym:'SCBK',name:'Standard Chartered',price:300.00,chg:2.75,pct:0.93,sector:'BANKING'},
+  {sym:'SBIC',name:'Stanbic Holdings',price:198.00,chg:0.25,pct:0.13,sector:'BANKING'},
+];
+
+let NSE_STOCKS = [...NSE_FALLBACK];
+let lastFetchTime = 0;
+const FETCH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+// Sector map for categorizing stocks from API
+const SECTOR_MAP = {
+  SCOM:'TELECOMS', EQTY:'BANKING', KCB:'BANKING', COOP:'BANKING',
+  NCBA:'BANKING', ABSA:'BANKING', SCBK:'BANKING', SBIC:'BANKING',
+  DTK:'BANKING', HFCK:'BANKING', IMH:'BANKING', NCBA:'BANKING',
+  KPLC:'ENERGY', KEGN:'ENERGY',
+  EABL:'MANUFACTURING', BAMB:'MANUFACTURING', UNGA:'MANUFACTURING',
+  BAT:'MANUFACTURING', CARB:'MANUFACTURING',
+  JUB:'INSURANCE', BRIT:'INSURANCE',
+  NMG:'MEDIA', SGL:'MEDIA',
+  KQ:'AVIATION', TPSE:'HOSPITALITY',
+};
+
+function getSector(ticker) {
+  return SECTOR_MAP[ticker] || 'OTHER';
+}
+
+// ─── LIVE DATA FETCH ──────────────────────────────────────────────────
+async function fetchLiveNSEData() {
+  try {
+    const res = await fetch('/.netlify/functions/nse');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if (data.stocks && data.stocks.length > 0) {
+      // Map API response to our format
+      NSE_STOCKS = data.stocks.map(s => ({
+        sym: s.ticker,
+        name: s.name,
+        price: s.price,
+        chg: s.change,
+        pct: s.pct,
+        volume: s.volume,
+        sector: getSector(s.ticker),
+      }));
+
+      // Update NASI in status bar
+      if (data.nasi && data.nasi.index) {
+        const sign = data.nasi.change >= 0 ? '+' : '';
+        const nasiEl = document.querySelector('.status-item:last-child');
+        if (nasiEl) nasiEl.innerHTML = `NASI: <span class="${data.nasi.change >= 0 ? 'up' : 'dn'}" style="margin-left:4px">
+          ${data.nasi.change >= 0 ? '▲' : '▼'} ${data.nasi.index.toFixed(2)} ${sign}${data.nasi.changePct?.toFixed(2)}%</span>`;
+      }
+
+      // Update fetch time
+      lastFetchTime = Date.now();
+      const fetchedLabel = data.cached ? `CACHED ${data.age}s ago` : 'LIVE';
+      document.getElementById('nse-time').textContent = fetchedLabel;
+
+      // Re-render with live data
+      if (NSE_STOCKS.length > 0) {
+        selectedStock = NSE_STOCKS.find(s => s.sym === selectedStock?.sym) || NSE_STOCKS[0];
+      }
+      renderMarketList();
+      buildTicker();
+      updateChartLabel();
+      drawChart();
+
+      console.log(`[GLINT] Loaded ${NSE_STOCKS.length} live NSE stocks`);
+    }
+  } catch (err) {
+    console.warn('[GLINT] Live fetch failed, using fallback data:', err.message);
+    document.getElementById('nse-time').textContent = 'OFFLINE';
+  }
+}
+
+// Poll every 5 minutes
+function startDataPolling() {
+  fetchLiveNSEData(); // immediate first fetch
+  setInterval(() => {
+    if (Date.now() - lastFetchTime > FETCH_INTERVAL) {
+      fetchLiveNSEData();
+    }
+  }, 60 * 1000); // check every minute, fetch if stale
+}
+
+const FOREX = [
+  {sym:'USD/KES',price:129.45,chg:0.23,pct:0.18},
+  {sym:'EUR/KES',price:141.20,chg:-0.45,pct:-0.32},
+  {sym:'GBP/KES',price:164.80,chg:0.60,pct:0.37},
+  {sym:'UGX/KES',price:0.034,chg:0.00,pct:0.12},
+];
+
+const NEWS_DATA = [
+  {tag:'NSE',cls:'tag-nse',title:'Safaricom posts 8.2% rise in H1 revenue amid M-Pesa growth surge',time:'10:32 AM',source:'Business Daily'},
+  {tag:'CBK',cls:'tag-cbk',title:'Central Bank holds rates at 13% citing easing inflation pressures',time:'09:15 AM',source:'Reuters Africa'},
+  {tag:'FX',cls:'tag-fx',title:'Kenya shilling strengthens against dollar on improved diaspora remittances',time:'08:50 AM',source:'Nation Business'},
+  {tag:'NSE',cls:'tag-nse',title:'Equity Group records KSh 12.4B 
