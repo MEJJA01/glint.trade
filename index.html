@@ -521,8 +521,8 @@ async function fetchLiveNSEData() {
         
         const res = await fetch(proxyUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        const parsed = json.contents;
+        const data = await res.json();
+        const parsed = JSON.parse(data.contents);
         
         // Parse HTML from AllOrigins response
         if (parsed) {
