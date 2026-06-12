@@ -441,7 +441,7 @@ canvas { display: block; }
     <div class="ai-messages" id="ai-messages">
       <div class="msg assistant">
         <div class="msg-role">GLINT AI</div>
-        <div class="msg-bubble">Good day. I am your Kenya market intelligence analyst. I have access to live web search and can analyze NSE equities, forex, CBK policy, and macroeconomic data in [...]
+        <div class="msg-bubble">Good day. I am your Kenya market intelligence analyst. I have access to live web search and can analyze NSE equities, forex, CBK policy, and macroeconomic data in real time.<br><br>Ask me anything about the Kenyan market.</div>
       </div>
     </div>
     <div class="ai-input-area">
@@ -464,7 +464,7 @@ canvas { display: block; }
 
 <script>
 // ─── MARKET DATA ──────────────────────────────────────────────────────
-// Live data fetched from AllOrigins proxy API (https://api.allorigins.win)
+// Live data fetched from AllOrigins API proxy
 // Falls back to seed data if API is unavailable
 
 const NSE_FALLBACK = [
@@ -491,7 +491,7 @@ const FETCH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 // Stocks to fetch
 const STOCK_TICKERS = ['SCOM', 'EQTY', 'KCB', 'COOP', 'NCBA', 'ABSA', 'KPLC', 'KEGN', 'EABL', 'BAMB', 'JUB', 'BRIT', 'SCBK', 'SBIC'];
 
-// Sector map for categorizing stocks from API
+// Sector map for categorizing stocks
 const SECTOR_MAP = {
   SCOM:'TELECOMS', EQTY:'BANKING', KCB:'BANKING', COOP:'BANKING',
   NCBA:'BANKING', ABSA:'BANKING', SCBK:'BANKING', SBIC:'BANKING',
@@ -527,7 +527,6 @@ async function fetchLiveNSEData() {
         if (data.contents) {
           const html = data.contents;
           // Basic parsing to extract price data from HTML
-          // This is a simplified extraction - adjust selectors based on actual HTML structure
           const priceMatch = html.match(/price['":\s>]+([0-9.]+)/i);
           const price = priceMatch ? parseFloat(priceMatch[1]) : undefined;
           
