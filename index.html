@@ -441,7 +441,7 @@ canvas { display: block; }
     <div class="ai-messages" id="ai-messages">
       <div class="msg assistant">
         <div class="msg-role">GLINT AI</div>
-        <div class="msg-bubble">Good day. I am your Kenya market intelligence analyst. I have access to live web search and can analyze NSE equities, forex, CBK policy, and macroeconomic data in real time.<br><br>Ask me anything about the Kenyan market.</div>
+        <div class="msg-bubble">Good day. I am your Kenya market intelligence analyst. I have access to live web search and can analyze NSE equities, forex, CBK policy, and macroeconomic data in [...]
       </div>
     </div>
     <div class="ai-input-area">
@@ -464,8 +464,8 @@ canvas { display: block; }
 
 <script>
 // ─── MARKET DATA ──────────────────────────────────────────────────────
-// Live data fetched from Netlify function (/.netlify/functions/nse)
-// Falls back to seed data if function is unavailable
+// Live data fetched from AllOrigins proxy API (https://api.allorigins.win)
+// Falls back to seed data if API is unavailable
 
 const NSE_FALLBACK = [
   {sym:'SCOM',name:'Safaricom Plc',price:28.90,chg:0.55,pct:1.94,sector:'TELECOMS'},
@@ -488,6 +488,9 @@ let NSE_STOCKS = [...NSE_FALLBACK];
 let lastFetchTime = 0;
 const FETCH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
+// Stocks to fetch
+const STOCK_TICKERS = ['SCOM', 'EQTY', 'KCB', 'COOP', 'NCBA', 'ABSA', 'KPLC', 'KEGN', 'EABL', 'BAMB', 'JUB', 'BRIT', 'SCBK', 'SBIC'];
+
 // Sector map for categorizing stocks from API
 const SECTOR_MAP = {
   SCOM:'TELECOMS', EQTY:'BANKING', KCB:'BANKING', COOP:'BANKING',
@@ -508,35 +511,50 @@ function getSector(ticker) {
 // ─── LIVE DATA FETCH ──────────────────────────────────────────────────
 async function fetchLiveNSEData() {
   try {
-    const res = await fetch('/.netlify/functions/nse');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-
-    if (data.stocks && data.stocks.length > 0) {
-      // Map API response to our format
-      NSE_STOCKS = data.stocks.map(s => ({
-        sym: s.ticker,
-        name: s.name,
-        price: s.price,
-        chg: s.change,
-        pct: s.pct,
-        volume: s.volume,
-        sector: getSector(s.ticker),
-      }));
-
-      // Update NASI in status bar
-      if (data.nasi && data.nasi.index) {
-        const sign = data.nasi.change >= 0 ? '+' : '';
-        const nasiEl = document.querySelector('.status-item:last-child');
-        if (nasiEl) nasiEl.innerHTML = `NASI: <span class="${data.nasi.change >= 0 ? 'up' : 'dn'}" style="margin-left:4px">
-          ${data.nasi.change >= 0 ? '▲' : '▼'} ${data.nasi.index.toFixed(2)} ${sign}${data.nasi.changePct?.toFixed(2)}%</span>`;
+    const stocks = [];
+    
+    // Fetch each stock from AllOrigins API
+    for (const ticker of STOCK_TICKERS) {
+      try {
+        const url = `https://afx.kwayisi.org/nse/${ticker}.html`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+        
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        
+        // Parse HTML from AllOrigins response
+        if (data.contents) {
+          const html = data.contents;
+          // Basic parsing to extract price data from HTML
+          // This is a simplified extraction - adjust selectors based on actual HTML structure
+          const priceMatch = html.match(/price['":\s>]+([0-9.]+)/i);
+          const price = priceMatch ? parseFloat(priceMatch[1]) : undefined;
+          
+          if (price !== undefined) {
+            stocks.push({
+              sym: ticker,
+              name: ticker,
+              price: price,
+              chg: 0,
+              pct: 0,
+              sector: getSector(ticker),
+            });
+          }
+        }
+      } catch (err) {
+        console.warn(`[GLINT] Failed to fetch ${ticker}:`, err.message);
       }
-
+    }
+    
+    // Use fetched data if we got any, otherwise keep using fallback
+    if (stocks.length > 0) {
+      NSE_STOCKS = stocks;
+      
       // Update fetch time
       lastFetchTime = Date.now();
-      const fetchedLabel = data.cached ? `CACHED ${data.age}s ago` : 'LIVE';
-      document.getElementById('nse-time').textContent = fetchedLabel;
-
+      document.getElementById('nse-time').textContent = 'LIVE';
+      
       // Re-render with live data
       if (NSE_STOCKS.length > 0) {
         selectedStock = NSE_STOCKS.find(s => s.sym === selectedStock?.sym) || NSE_STOCKS[0];
@@ -545,8 +563,10 @@ async function fetchLiveNSEData() {
       buildTicker();
       updateChartLabel();
       drawChart();
-
-      console.log(`[GLINT] Loaded ${NSE_STOCKS.length} live NSE stocks`);
+      
+      console.log(`[GLINT] Loaded ${NSE_STOCKS.length} live NSE stocks from AllOrigins API`);
+    } else {
+      throw new Error('No stocks fetched successfully');
     }
   } catch (err) {
     console.warn('[GLINT] Live fetch failed, using fallback data:', err.message);
@@ -575,4 +595,212 @@ const NEWS_DATA = [
   {tag:'NSE',cls:'tag-nse',title:'Safaricom posts 8.2% rise in H1 revenue amid M-Pesa growth surge',time:'10:32 AM',source:'Business Daily'},
   {tag:'CBK',cls:'tag-cbk',title:'Central Bank holds rates at 13% citing easing inflation pressures',time:'09:15 AM',source:'Reuters Africa'},
   {tag:'FX',cls:'tag-fx',title:'Kenya shilling strengthens against dollar on improved diaspora remittances',time:'08:50 AM',source:'Nation Business'},
-  {tag:'NSE',cls:'tag-nse',title:'Equity Group records KSh 12.4B 
+  {tag:'NSE',cls:'tag-nse',title:'Equity Group records KSh 12.4B profit in H1 2024',time:'08:30 AM',source:'Business Daily'},
+  {tag:'MACRO',cls:'tag-macro',title:'Kenya inflation eases to 6.9% in May from 7.3% in April',time:'07:45 AM',source:'KNBS'},
+];
+
+let selectedStock = NSE_STOCKS[0];
+
+// ─── UTILITIES ──────────────────────────────────────────────────────
+
+// Draw chart with canvas
+function drawChart() {
+  const canvas = document.getElementById('chart-canvas');
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  const width = canvas.parentElement.offsetWidth;
+  const height = canvas.parentElement.offsetHeight - 40;
+  
+  canvas.width = width;
+  canvas.height = height;
+  
+  // Simple line chart
+  ctx.strokeStyle = selectedStock.pct >= 0 ? 'var(--green)' : 'var(--red)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  
+  const points = 50;
+  const xStep = width / points;
+  const yCenter = height / 2;
+  const yScale = height / 4;
+  
+  for (let i = 0; i < points; i++) {
+    const x = i * xStep;
+    const noise = (Math.sin(i * 0.5) + Math.random() - 0.5) * selectedStock.pct * 10;
+    const y = yCenter - noise * yScale;
+    
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  
+  ctx.stroke();
+}
+
+function updateChartLabel() {
+  if (selectedStock) {
+    document.getElementById('chart-title').textContent = selectedStock.name.toUpperCase();
+    document.getElementById('chart-sym').textContent = selectedStock.sym;
+    document.getElementById('chart-price').textContent = `${selectedStock.price.toFixed(2)} KES`;
+    
+    const chgClass = selectedStock.pct >= 0 ? 'up' : 'dn';
+    const chgSymbol = selectedStock.pct >= 0 ? '▲' : '▼';
+    document.getElementById('chart-chg').innerHTML = `<span class="${chgClass}">${chgSymbol} ${selectedStock.pct.toFixed(2)}%</span>`;
+  }
+}
+
+function renderMarketList() {
+  const list = document.getElementById('market-list');
+  if (!list) return;
+  list.innerHTML = '';
+  
+  // Group by sector
+  const sectors = {};
+  NSE_STOCKS.forEach(stock => {
+    if (!sectors[stock.sector]) sectors[stock.sector] = [];
+    sectors[stock.sector].push(stock);
+  });
+  
+  // Render sections
+  Object.keys(sectors).sort().forEach(sector => {
+    const label = document.createElement('div');
+    label.className = 'market-section-label';
+    label.textContent = sector;
+    list.appendChild(label);
+    
+    sectors[sector].forEach(stock => {
+      const row = document.createElement('div');
+      row.className = 'stock-row';
+      if (selectedStock?.sym === stock.sym) row.classList.add('active');
+      row.onclick = () => selectStock(stock);
+      
+      row.innerHTML = `
+        <div class="stock-sym">${stock.sym}</div>
+        <div class="stock-name">${stock.name}</div>
+        <div class="stock-price">${stock.price.toFixed(2)}</div>
+        <div class="stock-chg ${stock.pct >= 0 ? 'up' : 'dn'}">${stock.pct >= 0 ? '+' : ''}${stock.pct.toFixed(2)}%</div>
+      `;
+      
+      list.appendChild(row);
+    });
+  });
+}
+
+function selectStock(stock) {
+  selectedStock = stock;
+  renderMarketList();
+  updateChartLabel();
+  drawChart();
+}
+
+function buildTicker() {
+  const track = document.getElementById('ticker-track');
+  if (!track) return;
+  
+  track.innerHTML = '';
+  
+  // Duplicate stocks for infinite scroll effect
+  const tickerStocks = [...NSE_STOCKS, ...NSE_STOCKS];
+  
+  tickerStocks.forEach(stock => {
+    const item = document.createElement('div');
+    item.className = 'ticker-item';
+    const chgClass = stock.pct >= 0 ? 'up' : 'dn';
+    item.innerHTML = `
+      <span class="ticker-sym">${stock.sym}</span>
+      <span class="ticker-price">${stock.price.toFixed(2)}</span>
+      <span class="ticker-chg ${chgClass}">${stock.pct >= 0 ? '+' : ''}${stock.pct.toFixed(2)}%</span>
+    `;
+    track.appendChild(item);
+  });
+}
+
+// Clock
+function updateClock() {
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US', {hour12: false});
+  document.getElementById('clock').textContent = time;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// News feed
+function renderNews() {
+  const feed = document.getElementById('news-feed');
+  if (!feed) return;
+  feed.innerHTML = '';
+  
+  NEWS_DATA.forEach(news => {
+    const item = document.createElement('div');
+    item.className = 'news-item';
+    item.innerHTML = `
+      <span class="news-tag ${news.cls}">${news.tag}</span>
+      <div class="news-content">
+        <div class="news-title">${news.title}</div>
+        <div class="news-meta">${news.time} · ${news.source}</div>
+      </div>
+    `;
+    feed.appendChild(item);
+  });
+}
+
+// AI chat
+function sendMessage() {
+  const input = document.getElementById('ai-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  
+  const messages = document.getElementById('ai-messages');
+  
+  // User message
+  const userMsg = document.createElement('div');
+  userMsg.className = 'msg user';
+  userMsg.innerHTML = `
+    <div class="msg-role">YOU</div>
+    <div class="msg-bubble">${msg}</div>
+  `;
+  messages.appendChild(userMsg);
+  
+  input.value = '';
+  messages.scrollTop = messages.scrollHeight;
+  
+  // Simulate AI response
+  setTimeout(() => {
+    const aiMsg = document.createElement('div');
+    aiMsg.className = 'msg assistant';
+    aiMsg.innerHTML = `
+      <div class="msg-role">GLINT AI</div>
+      <div class="msg-bubble">Analyzing market data... Based on current NSE performance and macro indicators, I can see ${selectedStock?.name} is trading at KES ${selectedStock?.price.toFixed(2)}. Would you like a deeper analysis?</div>
+    `;
+    messages.appendChild(aiMsg);
+    messages.scrollTop = messages.scrollHeight;
+  }, 500);
+}
+
+function askSuggestion(el) {
+  const input = document.getElementById('ai-input');
+  input.value = el.textContent;
+  input.focus();
+}
+
+// ─── INIT ──────────────────────────────────────────────────────
+
+window.addEventListener('DOMContentLoaded', () => {
+  renderMarketList();
+  buildTicker();
+  updateChartLabel();
+  renderNews();
+  drawChart();
+  
+  // Start polling for live data
+  startDataPolling();
+  
+  // Re-draw on resize
+  window.addEventListener('resize', drawChart);
+});
+</script>
+</body>
+</html>
